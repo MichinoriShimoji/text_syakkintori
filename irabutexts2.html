@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宮古語例文音声プレーヤー（Zenodo直接読み込み版）</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        
+        .info-banner {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-left: 5px solid #4CAF50;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .info-banner h2 {
+            margin-top: 0;
+            color: #2e7d32;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-banner p {
+            color: #1b5e20;
+            margin: 10px 0;
+        }
+        
+        .status-bar {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .status-info {
+            color: #6c757d;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-info span {
+            color: #007bff;
+            font-weight: bold;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+        
+        .example-list {
+            margin-top: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        
+        .example-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .example-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .example-list::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+        }
+        
+        .example-list::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #5a67d8 0%, #6b46c1 100%);
+        }
+        
+        .example-item {
+            margin: 12px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .example-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.1) 50%, transparent 100%);
+            transition: left 0.5s ease;
+        }
+        
+        .example-item:hover::before {
+            left: 100%;
+        }
+        
+        .example-item:hover {
+            background-color: #e3f2fd;
+            border-color: #2196F3;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+        }
+        
+        .example-item.playing {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-color: #4CAF50;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+        
+        .example-item.loading {
+            opacity: 0.7;
+            cursor: wait;
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        }
+        
+        .example-item.error {
+            background-color: #ffebee;
+            border-color: #f44336;
+            opacity: 0.8;
+        }
+        
+        .example-number {
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        
+        .example-text {
+            margin: 8px 0;
+        }
+        
+        .interlinear-container {
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.8;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        
+        .interlinear-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5em;
+        }
+        
+        .word-group {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-right: 0.5em;
+        }
+        
+        .miyako-word {
+            font-size: 16px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .gloss-word {
+            font-size: 16px;
+            color: #666;
+            font-variant: small-caps;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .gloss-clickable {
+            cursor: pointer;
+            text-decoration: underline dotted;
+            color: #2196F3;
+            transition: color 0.2s ease;
+        }
+        
+        .gloss-clickable:hover {
+            color: #1976D2;
+            text-decoration: underline;
+        }
+        
+        .japanese-text {
+            font-size: 14px;
+            color: #7f8c8d;
+            line-height: 1.4;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+            white-space: normal;
+        }
+        
+        .play-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .example-item:hover .play-icon {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+        
+        .example-item.playing .play-icon {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            animation: rotateIcon 2s linear infinite;
+        }
+        
+        .example-item.loading .play-icon {
+            background: linear-gradient(135deg, #FFA726 0%, #FB8C00 100%);
+            animation: spin 1s linear infinite;
+        }
+        
+        .example-item.error .play-icon {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+        
+        @keyframes rotateIcon {
+            from { transform: translateY(-50%) rotate(0deg); }
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+        
+        @keyframes spin {
+            0% { transform: translateY(-50%) rotate(0deg); }
+            100% { transform: translateY(-50%) rotate(360deg); }
+        }
+        
+        audio {
+            display: none;
+        }
+        
+        #audioPlayer {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        #audioPlayer.active {
+            display: flex;
+            animation: slideInUp 0.3s ease-out;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        #currentExample {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .audio-progress {
+            width: 200px;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .audio-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .loading-content {
+            background-color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 20px auto;
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* グロス吹き出しのスタイル */
+        .gloss-tooltip {
+            position: fixed;
+            background-color: #1a1a2e;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 300px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .gloss-tooltip.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .gloss-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1a1a2e transparent transparent transparent;
+        }
+        
+        .gloss-tooltip-content {
+            line-height: 1.6;
+        }
+        
+        .gloss-tooltip-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+        
+        .gloss-tooltip-link {
+            display: block;
+            margin-top: 8px;
+            color: #64b5f6;
+            font-size: 12px;
+            text-decoration: none;
+        }
+        
+        .gloss-tooltip-link:hover {
+            text-decoration: underline;
+        }
+        
+        .gloss-info-banner {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 5px solid #2196F3;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #0d47a1;
+        }
+        
+        .gloss-info-banner a {
+            color: #1565c0;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>自然談話を聞いてみる</h1>
+        <div class="subtitle">借金取りと貧乏人（宮古語伊良部長浜方言）</div>
+        
+        <div class="gloss-info-banner">
+            <strong>グロスをクリックすると、<a href="https://michinorishimoji.github.io/searchgloss/" target="_blank">SearchGloss</a>経由でグロスの検索ができます</strong>
+        </div>
+        
+        <div class="info-banner">
+            <h2>
+                <span style="font-size: 24px;">✨</span>
+                Zenodo音声自動読み込み対応
+            </h2>
+            <p>このページは、Zenodoに別途アップロードしている音声ファイルから直接音声ファイルを読み込む方式です。</p>
+            <p>インターネット接続があれば、ダウンロード不要で全ての音声を再生できます。</p>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-info">
+                <div class="status-indicator"></div>
+                ステータス: <span id="statusText">オンライン</span>
+            </div>
+            <div class="status-info">
+                音源: <span id="sourceText">Zenodo（直接接続）</span>
+            </div>
+        </div>
+        
+        <div class="example-list" id="exampleList">
+            <!-- 例文はJavaScriptで動的に生成されます -->
+        </div>
+        
+        <div id="audioPlayer">
+            <span>再生中：</span>
+            <span id="currentExample"></span>
+            <div class="audio-progress">
+                <div class="audio-progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+        
+        <audio id="audio" crossorigin="anonymous"></audio>
+        
+        <!-- グロス吹き出し -->
+        <div class="gloss-tooltip" id="glossTooltip">
+            <div class="gloss-tooltip-content">
+                <div class="gloss-tooltip-title" id="glossTitle"></div>
+                <div id="glossDescription"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <h2>音声ファイルを読み込み中...</h2>
+            <div class="loading-spinner"></div>
+            <p id="loadingMessage">少々お待ちください</p>
+        </div>
+    </div>
+
+    <script>
+// グロスの和訳辞書
+const glossDictionary = {
+    'foc': '焦点',
+    'gen': '属格',
+    'com': '共格',
+    'quot': '引用',
+    'cop': 'コピュラ',
+    'pst': '過去',
+    'hs': '伝聞',
+    'fil': 'フィラー',
+    'all': '向格',
+    'q': '疑問',
+    'dsc': '談話標識',
+    'thm': 'テーマ',
+    'csl': '理由',
+    'acc': '対格',
+    'imp': '命令',
+    'seq': '継起',
+    'cvlz': '使役化',
+    'acc2': '対格2',
+    'crcm': '状況',
+    'nom': '主格',
+    'ant': '先行',
+    'top': '主題',
+    'pot': '可能',
+    'neg': '否定',
+    'ben': '受益',
+    'hon': '敬語',
+    'npst': '非過去',
+    'inf': '中止',
+    'caus': '使役',
+    'prog': '進行',
+    'cnf': '確認',
+    'clf': '類別詞',
+    'add': '添加',
+    'dat': '与格',
+    'vlz': '動詞化',
+    'voc': '呼格',
+    'otop': '対比主題',
+    'refl': '再帰',
+    'sg': '単数',
+    'pl': '複数',
+    'int': '意志',
+    'dim': '指小辞',
+    'cond': '条件',
+    'asr': '断定',
+    'pros': '推測',
+    'cnlz': '名詞化',
+    'cvlz': '動詞化',
+    'neg.seq': '否定継起',
+    'neg.cond': '否定条件',
+    'neg.int': '否定意志'
+};
+
+// 複合グロスを解析して説明を生成
+function getGlossTranslation(gloss) {
+    // ピリオドで分割
+    const parts = gloss.toLowerCase().split('.');
+    const translations = [];
+    
+    for (const part of parts) {
+        if (glossDictionary[part]) {
+            translations.push(glossDictionary[part]);
+        } else {
+            // 辞書にない場合は元の文字列を使用
+            translations.push(part.toUpperCase());
+        }
+    }
+    
+    // 複合グロスとして組み合わせ
+    if (translations.length > 1) {
+        return translations.join('.');
+    } else if (translations.length === 1) {
+        return translations[0];
+    } else {
+        return 'SearchGloss該当なし';
+    }
+}
+
+// Zenodoの音声ファイルURL（全72個）
+const audioUrls = [
+    "https://zenodo.org/records/16599540/files/001_nkjaandu_kiban-kibannu_pZtu.wav?download=1",
+    "https://zenodo.org/records/16599540/files/002_ttjaa_anu_naugara_nautiga.wav?download=1",
+    "https://zenodo.org/records/16599540/files/003_ujakiitinu_pZtu_ucɨnaa-pZtu.wav?download=1",
+    "https://zenodo.org/records/16599540/files/004_iravru_pZZararu_mjaaku-pZtu.wav?download=1",
+    "https://zenodo.org/records/16599540/files/005_aidu_mmja_unu_naugara_kiban-ki.wav?download=1",
+    "https://zenodo.org/records/16599540/files/006_dusɨ_dusɨ_ja-i-ba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/007_zinnu_karas-itii_unu_jukar-p.wav?download=1",
+    "https://zenodo.org/records/16599540/files/008_aidu_unu_jukar-pZtu_nnditii_c.wav?download=1",
+    "https://zenodo.org/records/16599540/files/009_aidu_mjaaku-pZtu_mmja_zin-na_k.wav?download=1",
+    "https://zenodo.org/records/16599540/files/010_mmja_kiginnu_t-tarjaa.wav?download=1",
+    "https://zenodo.org/records/16599540/files/011_unu_ucɨnaanu_sjuuja_unu_zin-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/012_aidu_patarak-ai-nniba_jurus-i.wav?download=1",
+    "https://zenodo.org/records/16599540/files/013_patarak-ai-rkjaa_sjuumunnu_k.wav?download=1",
+    "https://zenodo.org/records/16599540/files/014_nci-i_par-itii.wav?download=1",
+    "https://zenodo.org/records/16599540/files/015_asɨ-tarjaa_nnditii.wav?download=1",
+    "https://zenodo.org/records/16599540/files/016_sjuumunnu_kacɨ-kai_nci-i_par-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/017_aidu_jaa-ngi_utui-i.wav?download=1",
+    "https://zenodo.org/records/16599540/files/018_mata_kiginnu_t-tarjaa.wav?download=1",
+    "https://zenodo.org/records/16599540/files/019_mata_turtii_t-tarca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/020_mjaakunkaie.wav?download=1",
+    "https://zenodo.org/records/16599540/files/021_aidu_mata_njaa-nniba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/022_mata_tandi-as-i-i_par-asɨ-tar.wav?download=1",
+    "https://zenodo.org/records/16599540/files/023_aidu_mmja_par-i-i.wav?download=1",
+    "https://zenodo.org/records/16599540/files/024_mata_kiginnu_ff-i-ba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/025_mata_icɨ-icɨ_mZZnmai_juunm.wav?download=1",
+    "https://zenodo.org/records/16599540/files/026_atunna_batafɨsari-ka-i-bai.wav?download=1",
+    "https://zenodo.org/records/16599540/files/027_nara_ik-i-i_kariuba_sugu_nna.wav?download=1",
+    "https://zenodo.org/records/16599540/files/028_katanaa_juui-jas-i-immja_mja.wav?download=1",
+    "https://zenodo.org/records/16599540/files/029_aidu_unu_nn_kiban-pZtu-gamaa.wav?download=1",
+    "https://zenodo.org/records/16599540/files/030_mmja_umukutu-pZtu-us-i-utui-i.wav?download=1",
+    "https://zenodo.org/records/16599540/files/031_nkjaannu_naugara_mma-taga_aZ.wav?download=1",
+    "https://zenodo.org/records/16599540/files/032_mmja_naraa_kurus-atti_ff-i-b.wav?download=1",
+    "https://zenodo.org/records/16599540/files/033_hai_ninginna_naugara_cɨmu_idi.wav?download=1",
+    "https://zenodo.org/records/16599540/files/034_guffatii_pZtuu_kurusɨ-tigaa.wav?download=1",
+    "https://zenodo.org/records/16599540/files/035_cɨmu_idi-ba_tii_pZk-i.wav?download=1",
+    "https://zenodo.org/records/16599540/files/036_cɨmu-damia_duu-damidooiti.wav?download=1",
+    "https://zenodo.org/records/16599540/files/037_fɨta-kui_naraasɨ-tarca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/038_cɨmu_idi-tigaa.wav?download=1",
+    "https://zenodo.org/records/16599540/files/039_guffatia_ah-u-da_tiiju_pZk-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/040_mata_cɨmu-gamau_tami-tigaa_un.wav?download=1",
+    "https://zenodo.org/records/16599540/files/041_cɨmuubaa_tami-rujooitii.wav?download=1",
+    "https://zenodo.org/records/16599540/files/042_fɨta-kui_naraas-i_par_naraasɨ-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/043_aidu_unu_zinna_njaa-nnibati.wav?download=1",
+    "https://zenodo.org/records/16599540/files/044_aZZ-i-i_unu_munuZZu_fɨta-kui.wav?download=1",
+    "https://zenodo.org/records/16599540/files/045_jaa-ngi-i_unu_ucɨnaa-pZtu_ujak.wav?download=1",
+    "https://zenodo.org/records/16599540/files/046_mii-tigaadu_naaga_tuzɨnu_fɨ.wav?download=1",
+    "https://zenodo.org/records/16599540/files/047_nivv-i-u-tarca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/048_ahaa_sɨta-butuu_muc-i-utuidu.wav?download=1",
+    "https://zenodo.org/records/16599540/files/049_sɨta-butuu_saar-i-i_cc-i-i_na.wav?download=1",
+    "https://zenodo.org/records/16599540/files/050_butusutti_saar-i-i_cc-i-i_nivv.wav?download=1",
+    "https://zenodo.org/records/16599540/files/051_unu_katanau_mucjur-katana_ja-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/052_kurus-atti_fɨtaarru_kurus-i-.wav?download=1",
+    "https://zenodo.org/records/16599540/files/053_nubjaki-ikarai.wav?download=1",
+    "https://zenodo.org/records/16599540/files/054_aa_cɨmu_idi-ba_tii_pZk-itiid.wav?download=1",
+    "https://zenodo.org/records/16599540/files/055_tiiu_pZk-a-dakaa_nar-a-ntii.wav?download=1",
+    "https://zenodo.org/records/16599540/files/056_kasaa_karagi-ukus-i-i_mii-tar.wav?download=1",
+    "https://zenodo.org/records/16599540/files/057_unu_tuzɨnu_naaga_annaa_saar.wav?download=1",
+    "https://zenodo.org/records/16599540/files/058_mmja_butunu_mii-nniba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/059_agu-us-i-i_nivv-i-u-tarca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/060_agu-us-i-i_nivv-i-u-i-ba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/061_agaee.wav?download=1",
+    "https://zenodo.org/records/16599540/files/062_kanu_pZtunu_naraah-a-dakaa_na.wav?download=1",
+    "https://zenodo.org/records/16599540/files/063_naunmaidu_nar-i-ufɨtiii.wav?download=1",
+    "https://zenodo.org/records/16599540/files/064_agaiitiimmja_kansja-as-i-i_k.wav?download=1",
+    "https://zenodo.org/records/16599540/files/065_naugaraca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/066_agaii_vvaga_ukagedu_naraam.wav?download=1",
+    "https://zenodo.org/records/16599540/files/067_kai_ningin-nas-i-i_u-i-ba.wav?download=1",
+    "https://zenodo.org/records/16599540/files/068_arigatoo.wav?download=1",
+    "https://zenodo.org/records/16599540/files/069_zinnumaimmja_tur-a-djaanti.wav?download=1",
+    "https://zenodo.org/records/16599540/files/070_ukkaumaimmja_tur-a-t-tarca.wav?download=1",
+    "https://zenodo.org/records/16599540/files/071_munuZnu_fɨta-kuiga_sɨmjaann.wav?download=1",
+    "https://zenodo.org/records/16599540/files/072_ukkaumai_tur-a-da_uin_fii-t.wav?download=1"
+];
+
+// 例文データ（全72例文）
+const examples = [
+    { 
+        id: 1, 
+        miyako: "nkjaan=du kiban-kiban=nu pZtu=tu ujaki=ti=nu pZtu=tu dusɨ a-tar=ca.",
+        gloss: "昔=foc 貧しい-貧しい=gen 人=com 豊かな=quot=gen 人=com 友達 cop-pst=hs",
+        japanese: "昔々、貧しい人と金持ちの人が友達同士だったって。"
+    },
+    { 
+        id: 2, 
+        miyako: "ttjaa anu naugara nautiga",
+        gloss: "そしたら fil fil fil",
+        japanese: "そしたら、あの、なんだっけ"
+    },
+    { 
+        id: 3, 
+        miyako: "ujakii=ti=nu pZtu ucɨnaa-pZtu kiban=ti=nu pZtu mjaaku-pZtu a-tar=ca.",
+        gloss: "豊かな=quot=gen 人 沖縄-人 貧しい=quot=gen 人 宮古-人 cop-pst=hs",
+        japanese: "金持ちの人は沖縄の人、貧しい人は宮古の人だったって。"
+    },
+    { 
+        id: 4, 
+        miyako: "irav=ru pZZara=ru mjaaku-pZtu atar=ca.",
+        gloss: "伊良部=q 平良=q 宮古-人 cop.pst=hs",
+        japanese: "伊良部なのか平良なのか、（とにかく）宮古の人だったって。"
+    },
+    { 
+        id: 5, 
+        miyako: "aidu mmja unu naugara kiban-kiban=nu pZtu",
+        gloss: "すると dsc fil fil 貧しい-貧しい=gen 人",
+        japanese: "すると、その貧しい人は"
+    },
+    { 
+        id: 6, 
+        miyako: "dusɨ dusɨ ja-i-ba",
+        gloss: "友達 友達 cop-thm-csl",
+        japanese: "友達だから"
+    },
+    { 
+        id: 7, 
+        miyako: "zin=nu karas-i=tii unu jukar-pZtu=nkai aZ-tar=ca.",
+        gloss: "お金=acc 貸す-imp=quot その 豊かな-人=all 言う-pst=hs",
+        japanese: "お金を貸してくれ、とその裕福な人に言ったんだって。"
+    },
+    { 
+        id: 8, 
+        miyako: "aidu unu jukar-pZtu nndi=tii cc-i-i unu sjuumun-nas-i-i karasɨ-tar=ca.",
+        gloss: "すると その 豊かな-人 はい=quot 来る-thm-seq fil 証文-cvlz-thm-seq 貸す-pst=hs",
+        japanese: "そしたらその裕福な人は「わかった」と来て証文的なやつをして貸したって。"
+    },
+    { 
+        id: 9, 
+        miyako: "aidu mjaaku-pZtu mmja zin-na kari-i utui-i",
+        gloss: "すると 宮古-人 dsc お金-acc2 借りる-seq crcm-seq",
+        japanese: "そしたら宮古の人はお金を借りて"
+    },
+    { 
+        id: 10, 
+        miyako: "mmja kigin=nu t-tarjaa",
+        gloss: "dsc 期限=nom 来る-ant",
+        japanese: "期限がきたので"
+    },
+    { 
+        id: 11, 
+        miyako: "unu ucɨnaa=nu sjuu=ja unu zin-tur=tii mjaaku=nkai t-tar=ca.",
+        gloss: "その 沖縄=gen おじさん=top fil お金-取る=quot 宮古=all 来る-pst=hs",
+        japanese: "沖縄のおじさんはお金を回収しようと宮古に来たって。"
+    },
+    { 
+        id: 12, 
+        miyako: "aidu patarak-ai-n=niba jurus-i-i fii-hama-ci.",
+        gloss: "すると 働く-pot-neg=csl 許す-thm-seq ben-hon-hon.imp",
+        japanese: "そしたら、「働けないから許してください。」"
+    },
+    { 
+        id: 13, 
+        miyako: "patarak-ai-r=kjaa sjuumun=nu kacɨ-kai",
+        gloss: "働く-pot-npst=間 証文=acc 書く.inf-替える.seq",
+        japanese: "「働けるまで、証文を書き換えて」"
+    },
+    { 
+        id: 14, 
+        miyako: "nci-i par-i=tii",
+        gloss: "置く-seq 去る-imp=quot",
+        japanese: "「置いて行ってくれ」と"
+    },
+    { 
+        id: 15, 
+        miyako: "asɨ-tarjaa nndi=tii",
+        gloss: "言う-ant はい=quot",
+        japanese: "言ったら「わかった」と"
+    },
+    { 
+        id: 16, 
+        miyako: "sjuumun=nu kacɨ-kai nci-i par-tar=ca.",
+        gloss: "証文=acc 書く.inf-替える.seq 置く-seq 去る-pst=hs",
+        japanese: "証文を書き換えて、置いて、行ったって。"
+    },
+    { 
+        id: 17, 
+        miyako: "aidu jaa-ngi utui-i",
+        gloss: "さて 家-帰る crcm-seq",
+        japanese: "そして家にいて"
+    },
+    { 
+        id: 18, 
+        miyako: "mata kigin=nu t-tarjaa",
+        gloss: "また 期限=nom 来る-ant",
+        japanese: "また期限がきたら"
+    },
+    { 
+        id: 19, 
+        miyako: "mata tur=tii t-tar=ca.",
+        gloss: "また 取る=quot 来る-pst=hs",
+        japanese: "また（金を）取ると（言って）来たって。宮古まで。"
+    },
+    { 
+        id: 20, 
+        miyako: "mjaaku=nkai=e.",
+        gloss: "宮古=all=cnf",
+        japanese: "また（金を）取ると（言って）来たって。宮古まで。"
+    },
+    { 
+        id: 21, 
+        miyako: "aidu mata njaa-n=niba",
+        gloss: "すると また ない-neg=csl",
+        japanese: "そしたらまたないので"
+    },
+    { 
+        id: 22, 
+        miyako: "mata tandi-as-i-i par-asɨ-tar=ca.",
+        gloss: "また お願い-cnlz-thm-seq 去る-caus-pst=hs",
+        japanese: "またお願いして行かせたって。"
+    },
+    { 
+        id: 23, 
+        miyako: "aidu mmja par-i-i",
+        gloss: "すると dsc 去る-thm-seq",
+        japanese: "そして行って"
+    },
+    { 
+        id: 24, 
+        miyako: "mata kigin=nu ff-i-ba",
+        gloss: "また 期限=nom 来る-thm-csl",
+        japanese: "また期限がきたので"
+    },
+    { 
+        id: 25, 
+        miyako: "mata icɨ-icɨ mZZ=n=mai juu=n=mai mmja kajuv-tar kajuv-tar=ca.",
+        gloss: "また いつ-いつ ３=clf=add 4=clf=add dsc 通う-pst 通う-pst=hs",
+        japanese: "また「いついつ（にしよう）」（と言って）３回も４回も通ってきたって。"
+    },
+    { 
+        id: 26, 
+        miyako: "atu=n=na batafɨsari-ka-i-ba=i",
+        gloss: "あと=dat=top 腹立たしい-vlz-thm-csl=cnf",
+        japanese: "しまいには怒って、"
+    },
+    { 
+        id: 27, 
+        miyako: "nara ik-i-i kari=u=ba sugu nnama ik-i-i=ja kurus-i-i=du fɨɨ=tti",
+        gloss: "refl 行く-thm-seq 3sg=acc=otop すぐ 今 行く-thm-seq=top 殺す-thm-seq=foc 来る=quot",
+        japanese: "俺はあいつを今から行って殺してこようと"
+    },
+    { 
+        id: 28, 
+        miyako: "katana=a juui-jas-i-i=mmja mjaaku=nkai par-tar=ca.",
+        gloss: "刀=acc2 用意-cvlz-thm-seq=dsc 宮古=all 行く-pst=hs",
+        japanese: "刀を用意して、宮古に行ったって。"
+    },
+    { 
+        id: 29, 
+        miyako: "aidu unu nn kiban-pZtu-gama=a",
+        gloss: "すると その fil 貧しい-人-dim=top",
+        japanese: "すると貧しい人は"
+    },
+    { 
+        id: 30, 
+        miyako: "mmja umukutu-pZtu-us-i-utui-i",
+        gloss: "dsc 思慮深い-人-cvlz-thm-crcm-seq",
+        japanese: "思慮深い人で"
+    },
+    { 
+        id: 31, 
+        miyako: "nkjaan=nu naugara mma-ta=ga aZ-tar munuZ=Zu naraasɨ-tar=ca.",
+        gloss: "昔=gen fil おばあさん-pl=nom 言う-pst 言葉=acc 教える-pst=hs",
+        japanese: "昔のおばあたちが言っていた言葉を教えたって"
+    },
+    { 
+        id: 32, 
+        miyako: "mmja nara=a kurus-a=tti ff-i-ba=tii mmja umu-i-i naugara=ca.",
+        gloss: "dsc refl=top 殺す-int=quot 来る-thm-csl=quot dsc 思う-thm-seq fil=hs",
+        japanese: "「俺は殺そうと思ってきたから」と（金持ちは）思って（いたところ）"
+    },
+    { 
+        id: 33, 
+        miyako: "hai ningin=na naugara cɨmu idi=ga pjaar-a-n.",
+        gloss: "ほら 人間=top fil 肝 出る.inf=nom 早まる-thm-neg",
+        japanese: "「聞きなさい、人間は肝が出たら（怒ったら）早まらないことだ。グサっと人を殺したらおしまいだから」"
+    },
+    { 
+        id: 34, 
+        miyako: "guffa=tii pZtu=u kurusɨ-tigaa=mmja uwari ja-i-ba",
+        gloss: "グサッ=quot 人=acc 殺す-cond=dsc 終わり cop-thm-csl",
+        japanese: "「聞きなさい、人間は肝が出たら（怒ったら）早まらないことだ。グサっと人を殺したらおしまいだから」"
+    },
+    { 
+        id: 35, 
+        miyako: "cɨmu idi-ba tii pZk-i.",
+        gloss: "肝 出る-cond 手 引く-imp",
+        japanese: "「肝が出たら（怒ったら）、手を引きなさい」"
+    },
+    { 
+        id: 36, 
+        miyako: "cɨmu-dami=a duu-dami=dooi=ti",
+        gloss: "肝-溜める.inf=top refl-ため=asr=quot",
+        japanese: "「肝を溜める（怒りを堪える）のは自分のためだよ」と"
+    },
+    { 
+        id: 37, 
+        miyako: "fɨta-kui naraasɨ-tar=ca.",
+        gloss: "2-clf 教える-pst=hs",
+        japanese: "二言、教えたんだって。"
+    },
+    { 
+        id: 38, 
+        miyako: "cɨmu idi-tigaa",
+        gloss: "肝 出る-cond",
+        japanese: "肝が出たら（怒ったら）、"
+    },
+    { 
+        id: 39, 
+        miyako: "guffa=ti=a ah-u-da tii=ju pZk-i=tii",
+        gloss: "グサッ=quot=top する-thm-neg.seq 手=acc 引く-imp=quot",
+        japanese: "グサっとやらずに手を引きなさいと。"
+    },
+    { 
+        id: 40, 
+        miyako: "mata cɨmu-gama=u tami-tigaa unagaduu=nu tami ja-i-ba",
+        gloss: "また 肝-dim=acc 溜める-cond refl=gen ため cop-thm-csl",
+        japanese: "そして肝を溜めたら（怒りを堪えたら）自分自身のためだから"
+    },
+    { 
+        id: 41, 
+        miyako: "cɨmu=u=baa tami-ru=joo=i=tii",
+        gloss: "肝=acc=otop 溜める-imp=voc=cnf=quot",
+        japanese: "肝を溜めなさい（怒りを堪えなさい）よ、と"
+    },
+    { 
+        id: 42, 
+        miyako: "fɨta-kui naraas-i par naraasɨ-tar=ca.",
+        gloss: "2-clf 教える-thm 行く 教える-pst=hs",
+        japanese: "二言、教えて行かせたんだって。"
+    },
+    { 
+        id: 43, 
+        miyako: "aidu unu zin=na njaa-n=niba=tii=mmja",
+        gloss: "さて fil お金=acc2 ない-neg=csl=quot=dsc",
+        japanese: "お金がないから、と"
+    },
+    { 
+        id: 44, 
+        miyako: "aZZ-i-i unu munuZ=Zu fɨta-kui naraas-i-i par-asɨ-tarjaa",
+        gloss: "言う-thm-seq fil 言葉=acc 2-clf 教える-thm-seq 行く-caus-ant",
+        japanese: "言って、言葉を二言、教えて行かせたら"
+    },
+    { 
+        id: 45, 
+        miyako: "jaa-ngi-i unu ucɨnaa-pZtu ujaki-pZtu jaa-ngi-i",
+        gloss: "家-帰る-seq その 沖縄-人 豊かな-人 家-帰る-seq",
+        japanese: "家に行って、その沖縄の人は家に行って"
+    },
+    { 
+        id: 46, 
+        miyako: "mii-tigaa=du naa=ga tuzɨ=nu fɨtaar kasa=a par-i-i",
+        gloss: "見る-cond=foc refl=gen 妻=nom 2人 蚊帳=acc2 張る-thm-seq",
+        japanese: "（ふと）見たら、自分の妻が（誰かと）２人で蚊帳を張って"
+    },
+    { 
+        id: 47, 
+        miyako: "nivv-i-u-tar=ca.",
+        gloss: "寝る-thm-prog-pst=hs",
+        japanese: "寝ていたって。"
+    },
+    { 
+        id: 48, 
+        miyako: "ahaa sɨta-butu=u muc-i-utui=du kuri=a",
+        gloss: "ははあ 浮気-夫=acc 持つ-thm-crcm=foc 3sg=top",
+        japanese: "「ははあ、浮気相手がいるのかこいつは」"
+    },
+    { 
+        id: 49, 
+        miyako: "sɨta-butu=u saar-i-i cc-i-i naa=ga mii-n=kja",
+        gloss: "浮気-夫=acc 連れる-thm-seq 来る-thm-seq refl=nom いる-neg=間",
+        japanese: "「浮気相手を連れてきて俺がいない間に」"
+    },
+    { 
+        id: 50, 
+        miyako: "butusutti saar-i-i cc-i-i nivv-i-ur=ri=ti",
+        gloss: "浮気して 連れる-thm-seq 来る-thm-seq 寝る-thm-prog=cnf=quot",
+        japanese: "浮気して連れてきて寝ているんだな」と"
+    },
+    { 
+        id: 51, 
+        miyako: "unu katana=u mucjur-katana ja-i-ba=mmja",
+        gloss: "その 刀=acc 脇差-刀 cop-thm-csl=dsc",
+        japanese: "その刀を、（それは）脇差だから"
+    },
+    { 
+        id: 52, 
+        miyako: "kurus-a=tti fɨtaar=ru kurus-i-i sɨn-ah-a=tti=mmja",
+        gloss: "殺す-int=quot 2人=acc 殺す-thm-seq 死ぬ-caus-int=quot=dsc",
+        japanese: "殺そうと、２人を殺して死なそうと"
+    },
+    { 
+        id: 53, 
+        miyako: "nubjaki-i=kara=i",
+        gloss: "怒り狂う-seq=csl=cnf",
+        japanese: "怒り狂ってしまってからね"
+    },
+    { 
+        id: 54, 
+        miyako: "aa cɨmu idi-ba tii pZk-i=tii=du aZ-ta-i-ba kari=ga kanu pZtu=nu",
+        gloss: "ああ 肝 出る-cond 手 引く-imp=quot=foc 言う-pst-thm-csl 3sg=nom あの 人=nom",
+        japanese: "「ああ、肝が出たら（怒ったら）手をひけと言っていたよなあ、彼が。あいつが」"
+    },
+    { 
+        id: 55, 
+        miyako: "tii=u pZk-a-dakaa nar-a-n=tii katana=u=ba nci-i",
+        gloss: "手=acc 引く-thm-neg.cond なる-thm-neg=quot 刀=acc=otop 置く-seq",
+        japanese: "「手を引かないといけないな」と刀を置いて"
+    },
+    { 
+        id: 56, 
+        miyako: "kasa=a karagi-ukus-i-i mii-tarjaa",
+        gloss: "蚊帳=acc2 巻く-起こす-thm-seq 見る-ant",
+        japanese: "蚊帳を巻き上げて見てみると"
+    },
+    { 
+        id: 57, 
+        miyako: "unu tuzɨ=nu naa=ga anna=a saar-i-i cc-i-i",
+        gloss: "その 妻=nom refl=gen 母親=acc2 連れる-thm-seq 来る-thm-seq",
+        japanese: "その妻が自分の母親を連れてきて"
+    },
+    { 
+        id: 58, 
+        miyako: "mmja butu=nu mii-n=niba",
+        gloss: "dsc 夫=nom いる-neg=csl",
+        japanese: "夫がいないから"
+    },
+    { 
+        id: 59, 
+        miyako: "agu-us-i-i nivv-i-u-tar=ca.",
+        gloss: "一緒-cvlz-thm-seq 寝る-thm-prog-pst=hs",
+        japanese: "一緒に寝ていたって。"
+    },
+    { 
+        id: 60, 
+        miyako: "agu-us-i-i nivv-i-u-i-ba",
+        gloss: "一緒-cvlz-thm-seq 寝る-thm-prog-thm-csl",
+        japanese: "一緒に寝ているもんだから"
+    },
+    { 
+        id: 61, 
+        miyako: "agaee",
+        gloss: "ああ",
+        japanese: "「ああ！」"
+    },
+    { 
+        id: 62, 
+        miyako: "kanu pZtu=nu naraah-a-dakaa nara=a=mmja nau kurus-i-i sɨn-as-i-i fɨtaar=ru",
+        gloss: "あの 人=nom 教える-thm-neg.seq refl=top=dsc 何 殺す-thm-seq 死ぬ-caus-thm-seq 2人=acc",
+        japanese: "「あの人が教えてくれなかったら、俺は２人を殺して死なせてしまって」"
+    },
+    { 
+        id: 63, 
+        miyako: "nau=n=mai=du nar-i-ufɨ=tii=i",
+        gloss: "何=dat=add=foc なる-thm-pros=quot=cnf",
+        japanese: "「どんなことになっていただろうか」と"
+    },
+    { 
+        id: 64, 
+        miyako: "agaii=tii=mmja kansja-as-i-i kanu pZtu=nkai",
+        gloss: "ああ=quot=dsc 感謝-cvlz-thm-seq その 人=all",
+        japanese: "「ああ！」と感謝してね、その（宮古の）人にね"
+    },
+    { 
+        id: 65, 
+        miyako: "naugara=ca.",
+        gloss: "fil=hs",
+        japanese: "なんだって。"
+    },
+    { 
+        id: 66, 
+        miyako: "agaii vva=ga ukage=du nara=a=mmja nau=n=mai nar-a-da",
+        gloss: "ああ 2sg=gen おかげ=foc refl=top=dsc 何=dat=add なる-thm-neg.seq",
+        japanese: "「いやあ、あなたのおかげで俺は何事にもならずに」"
+    },
+    { 
+        id: 67, 
+        miyako: "kai ningin-nas-i-i u-i-ba",
+        gloss: "こう 人間-cvlz-thm-seq prog-thm-csl",
+        japanese: "「人間として生きていられるので」"
+    },
+    { 
+        id: 68, 
+        miyako: "arigatoo",
+        gloss: "ありがとう",
+        japanese: "「ありがとう」"
+    },
+    { 
+        id: 69, 
+        miyako: "zin=nu=mai=mmja tur-a-djaan=ti",
+        gloss: "お金=acc=add=dsc 取る-thm-neg.int=quot",
+        japanese: "「お金もいらないよ」と"
+    },
+    { 
+        id: 70, 
+        miyako: "ukka=u=mai=mmja tur-a-t-tar=ca.",
+        gloss: "借金=acc=add=dsc 取る-thm-neg-pst=hs",
+        japanese: "借金も取らなかったんだって。"
+    },
+    { 
+        id: 71, 
+        miyako: "munuZ=nu fɨta-kui=ga sɨmjaan=na",
+        gloss: "言葉=gen 2-clf=gen おかげ=top",
+        japanese: "言葉の二言のおかげで"
+    },
+    { 
+        id: 72, 
+        miyako: "ukka=u=mai tur-a-da ui=n fii-tar=ca.",
+        gloss: "借金=acc=add 取る-thm-neg.seq 3sg=dat あげる-pst=hs",
+        japanese: "借金も取らず、その人にあげたんだって。"
+    }
+];
+
+// グローバル変数
+let currentlyPlaying = null;
+
+// DOM要素の取得（ページ読み込み後）
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('ページ読み込み完了');
+    
+    // 例文リストを生成
+    generateExampleList();
+    
+    // イベントリスナーの設定
+    setupEventListeners();
+});
+
+// 例文リストを生成する関数
+function generateExampleList() {
+    const exampleList = document.getElementById('exampleList');
+    if (!exampleList) {
+        console.error('例文リストの要素が見つかりません');
+        return;
+    }
+    
+    console.log('例文を生成中...', examples.length + '個');
+    
+    examples.forEach((example) => {
+        const exampleItem = document.createElement('div');
+        exampleItem.className = 'example-item';
+        exampleItem.dataset.id = example.id;
+        
+        // インターリニア形式で表示
+        const interlinearHTML = createInterlinearHTML(example.miyako, example.gloss);
+        
+        exampleItem.innerHTML = `
+            <div class="example-number">(${example.id})</div>
+            <div class="example-text">
+                <div class="interlinear-container">
+                    ${interlinearHTML}
+                </div>
+                <div class="japanese-text">${example.japanese}</div>
+            </div>
+            <div class="play-icon">▶</div>
+        `;
+        
+        // クリックイベントを追加
+        exampleItem.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('gloss-clickable')) {
+                playExample(example.id);
+            }
+        });
+        
+        exampleList.appendChild(exampleItem);
+    });
+}
+
+// インターリニア形式のHTMLを生成
+function createInterlinearHTML(miyakoText, glossText) {
+    const miyakoWords = miyakoText.split(' ');
+    const glossWords = glossText.split(' ');
+    
+    let html = '<div class="interlinear-row">';
+    
+    for (let i = 0; i < Math.max(miyakoWords.length, glossWords.length); i++) {
+        const miyakoWord = miyakoWords[i] || '';
+        const glossWord = glossWords[i] || '';
+        
+        // グロスをクリック可能にする
+        const clickableGloss = makeGlossClickable(glossWord);
+        
+        html += `
+            <div class="word-group">
+                <div class="miyako-word">${miyakoWord}</div>
+                <div class="gloss-word">${clickableGloss}</div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// グロスをクリック可能にする
+function makeGlossClickable(glossText) {
+    const glossPattern = /[a-zA-Z]+(\.[a-zA-Z]+)?/g;
+    
+    return glossText.replace(glossPattern, (match) => {
+        // 日本語の単語は除外
+        if (match.match(/[ぁ-んァ-ヶー一-龯]/)) {
+            return match;
+        }
+        return `<span class="gloss-clickable" data-gloss="${match}">${match}</span>`;
+    });
+}
+
+// イベントリスナーの設定
+function setupEventListeners() {
+    // グロスクリックイベント
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('gloss-clickable')) {
+            e.stopPropagation();
+            const gloss = e.target.dataset.gloss;
+            showGlossTooltip(gloss, e.target);
+        } else if (!e.target.closest('.gloss-tooltip')) {
+            hideGlossTooltip();
+        }
+    });
+    
+    // 音声関連のイベント
+    const audio = document.getElementById('audio');
+    if (audio) {
+        audio.addEventListener('timeupdate', updateProgress);
+        audio.addEventListener('ended', function() {
+            updatePlayingState(null);
+        });
+    }
+}
+
+// グロスの吹き出しを表示
+function showGlossTooltip(gloss, element) {
+    const glossTooltip = document.getElementById('glossTooltip');
+    const glossTitle = document.getElementById('glossTitle');
+    const glossDescription = document.getElementById('glossDescription');
+    
+    // 複合グロスに対応した翻訳を取得
+    const translation = getGlossTranslation(gloss);
+    
+    glossTitle.textContent = gloss.toUpperCase();
+    glossDescription.textContent = translation;
+    
+    // 位置を計算
+    const rect = element.getBoundingClientRect();
+    const tooltipWidth = 300;
+    let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+    const top = rect.top - 60;
+    
+    // 画面からはみ出ないように調整
+    if (left < 10) left = 10;
+    if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+    }
+    
+    glossTooltip.style.left = left + 'px';
+    glossTooltip.style.top = top + 'px';
+    glossTooltip.classList.add('show');
+}
+
+// グロスの吹き出しを非表示
+function hideGlossTooltip() {
+    const glossTooltip = document.getElementById('glossTooltip');
+    if (glossTooltip) {
+        glossTooltip.classList.remove('show');
+    }
+}
+
+// 音声を再生
+async function playExample(id) {
+    console.log('音声再生開始:', id);
+    const audio = document.getElementById('audio');
+    const exampleItem = document.querySelector(`[data-id="${id}"]`);
+    
+    if (!audio || !exampleItem) {
+        console.error('必要な要素が見つかりません');
+        return;
+    }
+    
+    // 既に再生中の場合は停止
+    if (currentlyPlaying === id && !audio.paused) {
+        console.log('再生を停止します');
+        audio.pause();
+        updatePlayingState(null);
+        return;
+    }
+    
+    // ローディング表示
+    exampleItem.classList.add('loading');
+    exampleItem.querySelector('.play-icon').textContent = '⟳';
+    
+    try {
+        // 対応する音声URLを取得（配列のインデックスは0から始まるので-1）
+        const audioUrl = audioUrls[id - 1];
+        
+        if (!audioUrl) {
+            throw new Error('音声ファイルが見つかりません');
+        }
+        
+        console.log(`Loading audio ${id} from:`, audioUrl);
+        
+        // CORSプロキシを使用
+        // 注意: 実際の使用時は、より信頼性の高いプロキシサービスまたは独自のプロキシサーバーを使用することを推奨
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(audioUrl);
+        
+        audio.src = proxyUrl;
+        
+        // 音声のロードを待つ
+        await new Promise((resolve, reject) => {
+            audio.addEventListener('canplaythrough', resolve, { once: true });
+            audio.addEventListener('error', reject, { once: true });
+            audio.load();
+        });
+        
+        // 再生
+        await audio.play();
+        
+        updatePlayingState(id);
+        exampleItem.classList.remove('loading', 'error');
+        
+    } catch (err) {
+        console.error('音声ファイルの再生エラー:', err);
+        exampleItem.classList.remove('loading');
+        exampleItem.classList.add('error');
+        exampleItem.querySelector('.play-icon').textContent = '⚠';
+        
+        // フォールバック: 直接URLを試す（CORS制限により失敗する可能性が高い）
+        try {
+            audio.src = audioUrls[id - 1];
+            await audio.play();
+            updatePlayingState(id);
+            exampleItem.classList.remove('error');
+        } catch (fallbackErr) {
+            console.error('フォールバックも失敗:', fallbackErr);
+            alert('音声の再生に失敗しました。CORSプロキシサーバーの問題か、ネットワークエラーの可能性があります。');
+        }
+        
+        updatePlayingState(null);
+    }
+}
+
+// 再生状態を更新
+function updatePlayingState(id) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    const currentExample = document.getElementById('currentExample');
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+    
+    document.querySelectorAll('.example-item').forEach(item => {
+        item.classList.remove('playing');
+        const icon = item.querySelector('.play-icon');
+        if (!item.classList.contains('loading') && !item.classList.contains('error')) {
+            icon.textContent = '▶';
+        }
+    });
+    
+    if (id !== null) {
+        const playingItem = document.querySelector(`[data-id="${id}"]`);
+        if (playingItem) {
+            playingItem.classList.add('playing');
+            playingItem.querySelector('.play-icon').textContent = '⏸';
+        }
+        
+        currentlyPlaying = id;
+        currentExample.textContent = `例文 (${id})`;
+        audioPlayer.classList.add('active');
+        statusText.textContent = `例文 ${id} を再生中`;
+    } else {
+        currentlyPlaying = null;
+        audioPlayer.classList.remove('active');
+        progressBar.style.width = '0%';
+        statusText.textContent = 'オンライン';
+    }
+}
+
+// 進行状況を更新
+function updateProgress() {
+    const audio = document.getElementById('audio');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (audio.duration) {
+        const progress = (audio.currentTime / audio.duration) * 100;
+        progressBar.style.width = progress + '%';
+    }
+}
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>宮古語例文音声プレーヤー（Zenodo直接読み込み版）</title>
+    <title>自然談話を聴いてみる</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
@@ -225,10 +225,11 @@
         }
         
         .miyako-word {
-            font-size: 16px;
-            color: #2c3e50;
-            font-weight: 500;
-            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            color: #1a1a1a;
+            font-weight: 600;
+            font-family: 'Optima', 'Segoe UI', 'Candara', 'Calibri', 'Arial', sans-serif;
+            letter-spacing: 0.5px;
         }
         
         .gloss-word {
@@ -241,21 +242,23 @@
         .gloss-clickable {
             cursor: pointer;
             text-decoration: underline dotted;
-            color: #2196F3;
+            color: #b71c1c;
+            font-weight: bold;
             transition: color 0.2s ease;
         }
         
         .gloss-clickable:hover {
-            color: #1976D2;
+            color: #d32f2f;
             text-decoration: underline;
         }
         
         .japanese-text {
-            font-size: 14px;
-            color: #7f8c8d;
-            line-height: 1.4;
+            font-size: 16px;
+            color: #424242;
+            line-height: 1.6;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
             white-space: normal;
+            font-weight: 500;
         }
         
         .play-icon {
@@ -467,20 +470,11 @@
 </head>
 <body>
     <div class="container">
-        <h1>自然談話を聞いてみる</h1>
+        <h1>自然談話を聴いてみる</h1>
         <div class="subtitle">借金取りと貧乏人（宮古語伊良部長浜方言）</div>
         
         <div class="gloss-info-banner">
             <strong>グロスをクリックすると、<a href="https://michinorishimoji.github.io/searchgloss/" target="_blank">SearchGloss</a>経由でグロスの検索ができます</strong>
-        </div>
-        
-        <div class="info-banner">
-            <h2>
-                <span style="font-size: 24px;">✨</span>
-                Zenodo音声自動読み込み対応
-            </h2>
-            <p>このページは、Zenodoに別途アップロードしている音声ファイルから直接音声ファイルを読み込む方式です。</p>
-            <p>インターネット接続があれば、ダウンロード不要で全ての音声を再生できます。</p>
         </div>
         
         <div class="status-bar">

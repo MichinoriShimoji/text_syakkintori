@@ -499,7 +499,7 @@
             </div>
         </div>
         
-        <audio id="audio" crossorigin="anonymous"></audio>
+        <audio id="audio" preload="none"></audio>
         
         <!-- グロス吹き出し -->
         <div class="gloss-tooltip" id="glossTooltip">
@@ -1263,76 +1263,50 @@ function hideGlossTooltip() {
     }
 }
 
-// 音声を再生
+// 最後に選ばれた例文だけが再生状態を更新する。
+let playbackRequest = 0;
+
+// 通常の音声再生ではCORS許可は不要。プロキシを経由せず直接再生する。
 async function playExample(id) {
-    console.log('音声再生開始:', id);
     const audio = document.getElementById('audio');
     const exampleItem = document.querySelector(`[data-id="${id}"]`);
-    
-    if (!audio || !exampleItem) {
-        console.error('必要な要素が見つかりません');
-        return;
-    }
-    
-    // 既に再生中の場合は停止
+    if (!audio || !exampleItem) return;
+
+    const request = ++playbackRequest;
     if (currentlyPlaying === id && !audio.paused) {
-        console.log('再生を停止します');
         audio.pause();
         updatePlayingState(null);
         return;
     }
-    
-    // ローディング表示
+
+    audio.pause();
+    document.querySelectorAll('.example-item.loading').forEach(item => {
+        item.classList.remove('loading');
+    });
+    exampleItem.classList.remove('error');
+    updatePlayingState(null);
     exampleItem.classList.add('loading');
     exampleItem.querySelector('.play-icon').textContent = '⟳';
-    
+
     try {
-        // 対応する音声URLを取得（配列のインデックスは0から始まるので-1）
         const audioUrl = audioUrls[id - 1];
-        
-        if (!audioUrl) {
-            throw new Error('音声ファイルが見つかりません');
-        }
-        
-        console.log(`Loading audio ${id} from:`, audioUrl);
-        
-        // CORSプロキシを使用
-        // 注意: 実際の使用時は、より信頼性の高いプロキシサービスまたは独自のプロキシサーバーを使用することを推奨
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(audioUrl);
-        
-        audio.src = proxyUrl;
-        
-        // 音声のロードを待つ
-        await new Promise((resolve, reject) => {
-            audio.addEventListener('canplaythrough', resolve, { once: true });
-            audio.addEventListener('error', reject, { once: true });
-            audio.load();
-        });
-        
-        // 再生
+        if (!audioUrl) throw new Error('音声ファイルが見つかりません');
+        audio.src = audioUrl;
+        // クリック操作の中でplay()を呼び、読み込みと再生開始を待つ。
         await audio.play();
-        
-        updatePlayingState(id);
+        if (request !== playbackRequest) return;
         exampleItem.classList.remove('loading', 'error');
-        
+        updatePlayingState(id);
     } catch (err) {
+        if (request !== playbackRequest) return;
         console.error('音声ファイルの再生エラー:', err);
         exampleItem.classList.remove('loading');
         exampleItem.classList.add('error');
         exampleItem.querySelector('.play-icon').textContent = '⚠';
-        
-        // フォールバック: 直接URLを試す（CORS制限により失敗する可能性が高い）
-        try {
-            audio.src = audioUrls[id - 1];
-            await audio.play();
-            updatePlayingState(id);
-            exampleItem.classList.remove('error');
-        } catch (fallbackErr) {
-            console.error('フォールバックも失敗:', fallbackErr);
-            alert('音声の再生に失敗しました。CORSプロキシサーバーの問題か、ネットワークエラーの可能性があります。');
-        }
-        
         updatePlayingState(null);
+        alert(err.name === 'NotAllowedError'
+            ? 'ブラウザが音声再生を許可していません。サイトの音声設定を確認して、もう一度再生ボタンを押してください。'
+            : '音声を読み込めませんでした。通信状況を確認して、しばらく待ってから再生し直してください。');
     }
 }
 

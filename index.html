@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+    <link rel="preconnect" href="https://zenodo.org">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>自然談話を聴いてみる</title>
@@ -499,7 +500,6 @@
             </div>
         </div>
         
-        <audio id="audio" preload="none"></audio>
         
         <!-- グロス吹き出し -->
         <div class="gloss-tooltip" id="glossTooltip">
@@ -1216,14 +1216,9 @@ function setupEventListeners() {
         }
     });
     
-    // 音声関連のイベント
-    const audio = document.getElementById('audio');
-    if (audio) {
-        audio.addEventListener('timeupdate', updateProgress);
-        audio.addEventListener('ended', function() {
-            updatePlayingState(null);
-        });
-    }
+    // 初回表示時に冒頭の音声を準備する（自動再生はしない）。
+    prefetchExamples(1);
+
 }
 
 // グロスの吹き出しを表示
@@ -1263,23 +1258,65 @@ function hideGlossTooltip() {
     }
 }
 
+// 読み込んだAudioをそのまま再利用する。保持数を制限してメモリを節約。
+const audioPool = new Map();
+let activeAudio = null;
+const MAX_CACHED_AUDIO = 5;
+
+function getExampleAudio(id) {
+    if (!audioUrls[id - 1]) throw new Error('音声ファイルが見つかりません');
+    let audio = audioPool.get(id);
+    if (audio) {
+        audioPool.delete(id);
+        audioPool.set(id, audio);
+        return audio;
+    }
+    audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = audioUrls[id - 1];
+    audio.addEventListener('timeupdate', () => {
+        if (activeAudio === audio) updateProgress();
+    });
+    audio.addEventListener('ended', () => {
+        if (activeAudio === audio) updatePlayingState(null);
+    });
+    audioPool.set(id, audio);
+    for (const [cachedId, cachedAudio] of audioPool) {
+        if (audioPool.size <= MAX_CACHED_AUDIO) break;
+        if (cachedAudio === activeAudio || cachedAudio === audio) continue;
+        cachedAudio.pause();
+        cachedAudio.removeAttribute('src');
+        cachedAudio.load();
+        audioPool.delete(cachedId);
+    }
+    return audio;
+}
+
+function prefetchExamples(startId) {
+    // 通信量節約設定や低速回線では、クリックした音声だけを取得する。
+    const connection = navigator.connection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return;
+    for (let id = startId; id <= Math.min(startId + 2, audioUrls.length); id++) {
+        getExampleAudio(id);
+    }
+}
+
 // 最後に選ばれた例文だけが再生状態を更新する。
 let playbackRequest = 0;
 
 // 通常の音声再生ではCORS許可は不要。プロキシを経由せず直接再生する。
 async function playExample(id) {
-    const audio = document.getElementById('audio');
     const exampleItem = document.querySelector(`[data-id="${id}"]`);
-    if (!audio || !exampleItem) return;
+    if (!exampleItem) return;
 
     const request = ++playbackRequest;
-    if (currentlyPlaying === id && !audio.paused) {
-        audio.pause();
+    if (currentlyPlaying === id && activeAudio && !activeAudio.paused) {
+        activeAudio.pause();
         updatePlayingState(null);
         return;
     }
 
-    audio.pause();
+    if (activeAudio) activeAudio.pause();
     document.querySelectorAll('.example-item.loading').forEach(item => {
         item.classList.remove('loading');
     });
@@ -1289,14 +1326,16 @@ async function playExample(id) {
     exampleItem.querySelector('.play-icon').textContent = '⟳';
 
     try {
-        const audioUrl = audioUrls[id - 1];
-        if (!audioUrl) throw new Error('音声ファイルが見つかりません');
-        audio.src = audioUrl;
+        const audio = getExampleAudio(id);
+        activeAudio = audio;
+        if (audio.error) audio.load();
+        audio.currentTime = 0;
         // クリック操作の中でplay()を呼び、読み込みと再生開始を待つ。
         await audio.play();
         if (request !== playbackRequest) return;
         exampleItem.classList.remove('loading', 'error');
         updatePlayingState(id);
+        prefetchExamples(id + 1);
     } catch (err) {
         if (request !== playbackRequest) return;
         console.error('音声ファイルの再生エラー:', err);
@@ -1346,10 +1385,10 @@ function updatePlayingState(id) {
 
 // 進行状況を更新
 function updateProgress() {
-    const audio = document.getElementById('audio');
+    const audio = activeAudio;
     const progressBar = document.getElementById('progressBar');
     
-    if (audio.duration) {
+    if (audio && audio.duration) {
         const progress = (audio.currentTime / audio.duration) * 100;
         progressBar.style.width = progress + '%';
     }
